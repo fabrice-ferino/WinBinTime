@@ -7,10 +7,11 @@
 
 #include <vector>
 
-void _tmain(int argc, TCHAR *argv[])
+int _tmain(int argc, TCHAR *argv[])
 {
   STARTUPINFO si;
   PROCESS_INFORMATION pi;
+  int retVal = 1;
 
   ZeroMemory(&si, sizeof(si));
   si.cb = sizeof(si);
@@ -19,7 +20,7 @@ void _tmain(int argc, TCHAR *argv[])
   if (argc < 2)
   {
     _ftprintf(stderr, _T("Usage: %s [cmdline]\n"), argv[0]);
-    return;
+    return retVal;
   }
 
   size_t totalLen = 0;
@@ -29,13 +30,13 @@ void _tmain(int argc, TCHAR *argv[])
   for (int i = 1; i < argc; ++i)
   {
     lengths[i - 1] = _tcslen(argv[i]);
-    totalLen += lengths[i-1] + 3; // +3 -> quotes and space or null 
+    totalLen += lengths[i-1] + 3; // +3 -> quotes and space or null
   }
   LPTSTR commandLine = (LPTSTR) malloc(totalLen * sizeof(TCHAR));
   if (!commandLine)
   {
     _ftprintf(stderr, _T("Out of memory!\n"));
-    return;
+    return retVal;
   }
   LPTSTR tmp = commandLine;
   for (int i = 1; i < argc; ++i)
@@ -47,8 +48,8 @@ void _tmain(int argc, TCHAR *argv[])
     *tmp++ = _T(' ');
   }
   *(tmp - 1) = 0;
-  
-  // Start the child process. 
+
+  // Start the child process.
   if (!CreateProcess(NULL,   // No module name (use command line)
     commandLine,          // Command line
     NULL,           // Process handle not inheritable
@@ -56,7 +57,7 @@ void _tmain(int argc, TCHAR *argv[])
     TRUE,          // Set handle inheritance to TRUE
     0,              // No creation flags
     NULL,           // Use parent's environment block
-    NULL,           // Use parent's starting directory 
+    NULL,           // Use parent's starting directory
     &si,            // Pointer to STARTUPINFO structure
     &pi)           // Pointer to PROCESS_INFORMATION structure
     )
@@ -64,11 +65,11 @@ void _tmain(int argc, TCHAR *argv[])
     _ftprintf(stderr, _T("CreateProcess failed (%d).\n"), GetLastError());
     goto exit;
   }
- 
+
   // Wait until child process exits.
   WaitForSingleObject(pi.hProcess, INFINITE);
 
-  // Query the information 
+  // Query the information
   FILETIME startTime, endTime, kernelTime, userTime;
   if (GetProcessTimes(pi.hProcess, &startTime, &endTime, &kernelTime, &userTime))
   {
@@ -88,11 +89,11 @@ void _tmain(int argc, TCHAR *argv[])
   PROCESS_MEMORY_COUNTERS pmc;
   if (GetProcessMemoryInfo(pi.hProcess, &pmc, sizeof(pmc)))
   {
-    _ftprintf(stderr, _T("\tPageFaultCount: %llu\n"), 
+    _ftprintf(stderr, _T("\tPageFaultCount: %llu\n"),
       (unsigned long long) pmc.PageFaultCount);
     _ftprintf(stderr, _T("\tPeakWorkingSetSize: %llu bytes\n"),
       (unsigned long long) pmc.PeakWorkingSetSize);
-    _ftprintf(stderr, _T("\tWorkingSetSize: %llu bytes\n"), 
+    _ftprintf(stderr, _T("\tWorkingSetSize: %llu bytes\n"),
       (unsigned long long) pmc.WorkingSetSize);
     _ftprintf(stderr, _T("\tQuotaPeakPagedPoolUsage: %llu bytes\n"),
       (unsigned long long) pmc.QuotaPeakPagedPoolUsage);
@@ -102,18 +103,19 @@ void _tmain(int argc, TCHAR *argv[])
       (unsigned long long) pmc.QuotaPeakNonPagedPoolUsage);
     _ftprintf(stderr, _T("\tQuotaNonPagedPoolUsage: %llu bytes\n"),
       (unsigned long long) pmc.QuotaNonPagedPoolUsage);
-    _ftprintf(stderr, _T("\tPagefileUsage: %llu bytes\n"), 
+    _ftprintf(stderr, _T("\tPagefileUsage: %llu bytes\n"),
       (unsigned long long) pmc.PagefileUsage);
     _ftprintf(stderr, _T("\tPeakPagefileUsage: %llu bytes\n"),
       (unsigned long long) pmc.PeakPagefileUsage);
   }
 
-  // Close process and thread handles. 
+  // Close process and thread handles.
   CloseHandle(pi.hProcess);
   CloseHandle(pi.hThread);
 
+  retVal = 0;
 exit:
 
   free(commandLine);
+  return retVal;
 }
-
